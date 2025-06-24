@@ -1,0 +1,60 @@
+services:
+  # PostgreSQL Database
+  postgresdb:
+    image: postgres:17
+    container_name: user-management-postgres
+    environment:
+      POSTGRES_DB: user-management
+      POSTGRES_USER: testuser_readwrite
+      POSTGRES_PASSWORD: root
+    ports:
+      - "17001:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Spring Boot Application
+  management:
+    build:
+      context: ./management
+      dockerfile: Dockerfile
+    container_name: user-management-app
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresdb:5432/user-management
+      SPRING_DATASOURCE_USERNAME: testuser_readwrite
+      SPRING_DATASOURCE_PASSWORD: root
+    depends_on:
+      - postgresdb
+    restart: unless-stopped
+
+  # React Frontend
+  insight-compass-researcher-app:
+    build:
+      context: ./insight-compass-researcher-app
+      dockerfile: Dockerfile
+    container_name: insight-react-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - management
+    restart: unless-stopped
+
+  # LangGraph Agent
+  langgraph-agent:
+    build:
+      context: ./COMPANY-RESEARCHER
+      dockerfile: Dockerfile
+    container_name: company-researcher-agent
+    ports:
+      - "8000:8000"
+    environment:
+      GOOGLE_API_KEY: "AIzaSyDe0WzZzZLvTALYe9Otpur8hg9VVJ5b_B4"
+      TAVILY_API_KEY: "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"
+    volumes:
+      - ./COMPANY-RESEARCHER:/app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
