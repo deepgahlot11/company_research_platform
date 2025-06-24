@@ -189,13 +189,46 @@ POST	/analyze (agent)	    Called internally by backend
 
 ## How to run the application?
 
-**Option 1**
+**Option 1 - Easy setup (Recommended)**
 
 - Make sure Docker is installed on your machine [Download Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - Once Docker is installed, run on command line or terminal
 
 ```
 docker compose up --build
+```
+
+- Open any browser and access http://localhost:8080
+
+**Option 2 - Complex, customizable setup**
+
+- Setup postgreSQL DB, create database = user-management, username = testuser_readwrite, password = root
+- In Project - 'management' which is Spring boot code, run below commands, make sure application yaml has correct DB details
+
+```
+mvn clean install
+mvn spring-boot:run
+```
+
+- In Project - 'insight-compass-researcher-app' which is frontend react code, run below commands
+
+```
+npm i
+npm run dev
+```
+
+- Run these commands in terminal to run Langraph agent
+
+```
+curl -LsSf https://astral.sh/uv/install.sh | sh
+cp .env.example .env
+uv pip install -e .
+
+export GOOGLE_API_KEY=<GOOGLE_API_KEY_VALUE>
+export TAVILY_API_KEY=<TAVILY_API_KEY_VALUE>
+
+cd src
+TAVILY_API_KEY=<TAVILY_API_KEY_VALUE> PYTHONPATH=src uvicorn agent.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 - Open any browser and access http://localhost:8080

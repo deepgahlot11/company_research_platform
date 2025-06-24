@@ -3,12 +3,12 @@ spring:
     name: "User Management"
 
   datasource:
-#    url: ${SPRING_DATASOURCE_URL}
-#    username: ${SPRING_DATASOURCE_USERNAME}
-#    password: ${SPRING_DATASOURCE_PASSWORD}
-    url: jdbc:postgresql://localhost:17001/user-management
-    username: testuser_readwrite
-    password: root
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+#    url: jdbc:postgresql://localhost:17001/user-management
+#    username: testuser_readwrite
+#    password: root
 
   jpa:
     hibernate:
