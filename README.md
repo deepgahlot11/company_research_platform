@@ -166,4 +166,3 @@ POST	/analyze (agent)	    Called internally by backend
 - Add role-based access control.
 - Allow user to customize model used (OpenAI, Gemini, etc.).
 
-# company_research_platform
