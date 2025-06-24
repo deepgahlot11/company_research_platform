@@ -224,11 +224,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 cp .env.example .env
 uv pip install -e .
 
-export GOOGLE_API_KEY=<GOOGLE_API_KEY_VALUE>
-export TAVILY_API_KEY=<TAVILY_API_KEY_VALUE>
-
 cd src
-TAVILY_API_KEY=<TAVILY_API_KEY_VALUE> PYTHONPATH=src uvicorn agent.main:app --host 0.0.0.0 --port 8000 --reload
+TAVILY_API_KEY=<TAVILY_API_KEY_VALUE> GOOGLE_API_KEY=<GOOGLE_API_KEY_VALUE> PYTHONPATH=src uvicorn agent.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 - Open any browser and access http://localhost:8080

@@ -21,8 +21,6 @@ from agent.prompts import (
 )
 from agent.schema_converter import schema_to_pydantic
 
-# === Setup ===
-os.environ["GOOGLE_API_KEY"] = "AIzaSyDe0WzZzZLvTALYe9Otpur8hg9VVJ5b_B4"
 
 rate_limiter = InMemoryRateLimiter(
     requests_per_second=4,
