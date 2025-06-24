@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SECRET_KEY = "spring-secret-key"
+import os
 
 class AnalyzeRequest(BaseModel):
     company: str
@@ -25,7 +25,7 @@ class AnalyzeRequest(BaseModel):
 @app.post("/analyze")
 async def analyze(request: AnalyzeRequest, raw_request: Request):
     auth = raw_request.headers.get("x-internal-key")
-    if auth != SECRET_KEY:
+    if auth != os.getenv("SECRET_KEY"):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     extraction_schema = request.extraction_schema or DEFAULT_EXTRACTION_SCHEMA
