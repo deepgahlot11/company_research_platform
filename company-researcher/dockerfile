@@ -1,22 +1,29 @@
+# Use official slim Python base (compatible with all platforms)
 FROM python:3.11-slim
 
-# Install system dependencies
+# Install required system dependencies
 RUN apt-get update && apt-get install -y curl git build-essential tar && rm -rf /var/lib/apt/lists/*
 
-# Install ARM64-compatible uv binary
-RUN curl -LO https://github.com/astral-sh/uv/releases/latest/download/uv-aarch64-unknown-linux-gnu.tar.gz && \
-    tar -xzf uv-aarch64-unknown-linux-gnu.tar.gz && \
-    mv uv-aarch64-unknown-linux-gnu/uv /usr/local/bin/uv && \
+# Automatically detect architecture and install matching 'uv' binary
+RUN ARCH=$(uname -m) && \
+    case "$ARCH" in \
+      x86_64) UV_URL="https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-unknown-linux-gnu.tar.gz" ;; \
+      aarch64|arm64) UV_URL="https://github.com/astral-sh/uv/releases/latest/download/uv-aarch64-unknown-linux-gnu.tar.gz" ;; \
+      *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+    esac && \
+    curl -LO "$UV_URL" && \
+    tar -xzf $(basename "$UV_URL") && \
+    mv uv*/uv /usr/local/bin/uv && \
     chmod +x /usr/local/bin/uv && \
-    rm -rf uv-aarch64-unknown-linux-gnu uv-aarch64-unknown-linux-gnu.tar.gz
+    rm -rf uv* $(basename "$UV_URL")
 
 # Set working directory
 WORKDIR /app
 
-# Copy source code
+# Copy project files into container
 COPY . .
 
-# Install project and dependencies globally (no venv)
+# Install project dependencies using 'uv'
 RUN uv pip install --system -e . && \
     uv pip install --system \
       "langgraph>=0.2.52" \
@@ -28,9 +35,8 @@ RUN uv pip install --system -e . && \
       "uvicorn[standard]>=0.29.0" \
       "langgraph-cli[inmem]>=0.1.61"
 
-
-# Expose API port
+# Expose FastAPI port
 EXPOSE 8000
 
-# Run FastAPI app
+# Run your app
 CMD ["uvicorn", "src.agent.main:app", "--host", "0.0.0.0", "--port", "8000"]
