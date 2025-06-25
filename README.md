@@ -80,6 +80,8 @@ Just 3 Prompts used to create app -
 - Tavily API for real-time data gathering.
 - Uses LangGraph workflows to extract structured company information based on a dynamic schema.
 
+Refer [COMPANY_RESEARCHER README](https://github.com/deepgahlot11/company_research_platform/blob/main/company-researcher/README.md) for more details.
+
 4. Database (PostgreSQL)
 
 - Stores registered users and their details.
