@@ -204,7 +204,7 @@ docker compose up --build
 
 - Open any browser and access http://localhost:8080
 
-**Option 2 - Complex, customizable setup**
+**Option 2 - Complex, customizable setup (NOT Recommended)**
 
 - Setup postgreSQL DB, create database = user-management, username = testuser_readwrite, password = root
 - In Project - 'management' which is Spring boot code, run below commands, make sure application yaml has correct DB details
