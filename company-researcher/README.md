@@ -1,4 +1,12 @@
-# Company Researcher Agent
+# Changes done
+
+**Changes done to original implementation**
+- 1. In graph.py and run_eval.py, used gemini-2.5-flash llm in place of claude_3_5_sonnet_latest llm
+- 2. In main.py implemented /analyze endpoint using FastAPI 
+- 3. Implemented schema_converter.py to handle data format difference between claude_3_5_sonnet & gemini-2.5-flash llm, It handles json to python data types, handle arrays, recursively build sub-model for array items, handle objects & primitive type. It also checks for json or flat schema format
+- 4. Moved out Gemini and Tavily API keys from code to environment variables defined under docker compose file. Removed Anthropic API keys.
+
+# Company Researcher Agent (Original content below is not modified)
 
 Company Researcher Agent searches the web for information about a user-supplied company and returns it in a structured format defined by user-supplied JSON schema.
 
