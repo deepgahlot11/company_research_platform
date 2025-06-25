@@ -20,6 +20,8 @@ This project is a full-stack AI-driven platform for company research and informa
 - Stores JWT token on login.
 - Calls backend /api/analyze endpoint with token.
 
+Refer [INSIGHT_COMPASS_RESEARCHER_APP README FILE](https://github.com/deepgahlot11/company_research_platform/blob/main/insight-compass-researcher-app/README.md)
+
 2. Backend (Spring Boot)
 
 - Handles authentication (/api/auth/signup, /api/auth/login) and issues JWT.
@@ -34,7 +36,7 @@ This project is a full-stack AI-driven platform for company research and informa
 - Tavily API for real-time data gathering.
 - Uses LangGraph workflows to extract structured company information based on a dynamic schema.
 
-Refer [COMPANY RESEARCHER AI AGENT README FILE](https://github.com/deepgahlot11/company_research_platform/blob/main/company-researcher/README.md) for more details.
+Refer [COMPANY_RESEARCHER AI AGENT README FILE](https://github.com/deepgahlot11/company_research_platform/blob/main/company-researcher/README.md) for more details.
 
 4. Database (PostgreSQL)
 
