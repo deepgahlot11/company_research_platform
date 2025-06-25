@@ -14,7 +14,7 @@ This project is a full-stack AI-driven platform for company research and informa
 
 **Components :**
 
-1. Frontend (React)
+1. <ins>Frontend (React)</ins>
 
 - Provides UI for signup, login, and research input.
 - Stores JWT token on login.
@@ -22,14 +22,14 @@ This project is a full-stack AI-driven platform for company research and informa
 
 Refer [INSIGHT_COMPASS_RESEARCHER_APP README FILE](https://github.com/deepgahlot11/company_research_platform/blob/main/insight-compass-researcher-app/README.md)
 
-2. Backend (Spring Boot)
+2. <ins>Backend (Spring Boot)</ins>
 
 - Handles authentication (/api/auth/signup, /api/auth/login) and issues JWT.
 - Secures /api/analyze using JWT.
 - Forwards requests to the LangGraph AI agent after validating token.
 - Stores user details in PostgreSQL DB.
 
-3. LangGraph AI Agent (FastAPI + LangGraph)
+3. <ins>LangGraph AI Agent (FastAPI + LangGraph)</ins>
 
 - Exposes /analyze endpoint to accept company name, schema, and notes.
 - Gemini-2.5-Flash API for summarization and semantic extraction.
@@ -38,7 +38,7 @@ Refer [INSIGHT_COMPASS_RESEARCHER_APP README FILE](https://github.com/deepgahlot
 
 Refer [COMPANY_RESEARCHER AI AGENT README FILE](https://github.com/deepgahlot11/company_research_platform/blob/main/company-researcher/README.md) for more details.
 
-4. Database (PostgreSQL)
+4. <ins>Database (PostgreSQL)</ins>
 
 - Stores registered users and their details.
 
