@@ -14,29 +14,31 @@ This project is a full-stack AI-driven platform for company research and informa
 
 **Components :**
 
-1. Frontend (React)
+1. <ins>Frontend (React)</ins>
 
 - Provides UI for signup, login, and research input.
 - Stores JWT token on login.
 - Calls backend /api/analyze endpoint with token.
 
-2. Backend (Spring Boot)
+Refer [INSIGHT_COMPASS_RESEARCHER_APP README FILE](https://github.com/deepgahlot11/company_research_platform/blob/main/insight-compass-researcher-app/README.md)
+
+2. <ins>Backend (Spring Boot)</ins>
 
 - Handles authentication (/api/auth/signup, /api/auth/login) and issues JWT.
 - Secures /api/analyze using JWT.
 - Forwards requests to the LangGraph AI agent after validating token.
 - Stores user details in PostgreSQL DB.
 
-3. LangGraph AI Agent (FastAPI + LangGraph)
+3. <ins>LangGraph AI Agent (FastAPI + LangGraph)</ins>
 
 - Exposes /analyze endpoint to accept company name, schema, and notes.
 - Gemini-2.5-Flash API for summarization and semantic extraction.
 - Tavily API for real-time data gathering.
 - Uses LangGraph workflows to extract structured company information based on a dynamic schema.
 
-Refer [COMPANY RESEARCHER AI AGENT README FILE](https://github.com/deepgahlot11/company_research_platform/blob/main/company-researcher/README.md) for more details.
+Refer [COMPANY_RESEARCHER AI AGENT README FILE](https://github.com/deepgahlot11/company_research_platform/blob/main/company-researcher/README.md) for more details.
 
-4. Database (PostgreSQL)
+4. <ins>Database (PostgreSQL)</ins>
 
 - Stores registered users and their details.
 
@@ -202,7 +204,7 @@ docker compose up --build
 
 - Open any browser and access http://localhost:8080
 
-**Option 2 - Complex, customizable setup**
+**Option 2 - Complex, customizable setup (NOT Recommended)**
 
 - Setup postgreSQL DB, create database = user-management, username = testuser_readwrite, password = root
 - In Project - 'management' which is Spring boot code, run below commands, make sure application yaml has correct DB details
