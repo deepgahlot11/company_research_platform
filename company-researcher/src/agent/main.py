@@ -143,7 +143,7 @@ async def analyze_stream(
             ref_result = reflection(ref_input)
 
             if ref_result.get("is_satisfactory"):
-                yield sse("Reflection passed ✅.", type_="success")
+                yield sse("Reflection passed.", type_="success")
             else:
                 missing = ", ".join(ref_result.get("missing_fields", []))
                 yield sse(f"Reflection failed — missing: {missing}", type_="warning")

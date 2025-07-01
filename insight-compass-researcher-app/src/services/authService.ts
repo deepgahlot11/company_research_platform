@@ -1,5 +1,15 @@
-
 import { LoginCredentials, SignupCredentials, AuthResponse } from '@/types/auth';
+
+// Helper to decode JWT payload
+function decodeJwtPayload(token: string): any {
+  try {
+    const payload = token.split('.')[1];
+    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(decodeURIComponent(escape(decoded)));
+  } catch (e) {
+    return {};
+  }
+}
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
@@ -20,13 +30,13 @@ export const authService = {
         // Store token in sessionStorage
         sessionStorage.setItem('authToken', data.token);
         
-        // Create a user object from the token or credentials
-        // In a real app, you might decode the JWT to get user info
+        // Decode JWT to get user info
+        const claims = decodeJwtPayload(data.token);
         const user = {
-          id: 'user_' + Date.now(),
-          firstName: 'User',
-          lastName: 'Name',
-          email: credentials.email
+          id: claims.sub || ('user_' + Date.now()),
+          firstName: claims.firstName || 'User',
+          lastName: claims.lastName || 'Name',
+          email: claims.email || credentials.email
         };
 
         return {
@@ -67,11 +77,13 @@ export const authService = {
         // Store token in sessionStorage
         sessionStorage.setItem('authToken', data.token);
         
+        // Decode JWT to get user info
+        const claims = decodeJwtPayload(data.token);
         const user = {
-          id: 'user_' + Date.now(),
-          firstName: credentials.firstName,
-          lastName: credentials.lastName,
-          email: credentials.email
+          id: claims.sub || ('user_' + Date.now()),
+          firstName: claims.firstName || credentials.firstName,
+          lastName: claims.lastName || credentials.lastName,
+          email: claims.email || credentials.email
         };
 
         return {
