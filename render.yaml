@@ -1,0 +1,59 @@
+services:
+  - type: web
+    name: spring-boot-backend
+    env: docker
+    repo: https://github.com/deepgahlot11/company_research_platform
+    dockerfilePath: ./management/Dockerfile
+    dockerContext: ./management
+    buildCommand: ./gradlew build
+    startCommand: java -jar build/libs/*.jar
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: user-management-db
+          property: jdbc:postgres://testuser_readwrite:root@your-db-host:5432/user-management
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: user-management-db
+          property: testuser_readwrite
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: user-management-db
+          property: root
+    plan: free
+    autoDeploy: true
+
+  - type: web
+    name: react-frontend
+    env: docker
+    repo: https://github.com/deepgahlot11/company_research_platform
+    dockerfilePath: ./insight-compass-researcher-app/Dockerfile
+    dockerContext: ./insight-compass-researcher-app
+    buildCommand: npm install && npm run build
+    startCommand: serve -s build
+    plan: free
+    autoDeploy: true
+
+  - type: web
+    name: langgraph-agent
+    env: docker
+    repo: https://github.com/deepgahlot11/company_research_platform
+    dockerfilePath: ./COMPANY-RESEARCHER/Dockerfile
+    dockerContext: ./COMPANY-RESEARCHER
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    envVars:
+      - key: GOOGLE_API_KEY
+        value: AIzaSyDe0WzZzZLvTALYe9Otpur8hg9VVJ5b_B4
+      - key: TAVILY_API_KEY
+        value: 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
+      - key: SECRET_KEY
+        value: spring-secret-key
+    plan: free
+    autoDeploy: true
+
+databases:
+  - name: user-management-db
+    databaseName: user-management
+    user: testuser_readwrite
+    password: root
+    plan: free
