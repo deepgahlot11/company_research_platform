@@ -6,19 +6,18 @@ services:
     dockerfilePath: ./management/Dockerfile
     dockerContext: ./management
     buildCommand: ./gradlew build
-    startCommand: java -jar build/libs/*.jar
     envVars:
       - key: SPRING_DATASOURCE_URL
         fromDatabase:
-          name: user-management-db
-          property: jdbcConnectionString
+          name: user_management_db
+          property: connectionString
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
-          name: user-management-db
+          name: user_management_db
           property: user
       - key: SPRING_DATASOURCE_PASSWORD
         fromDatabase:
-          name: user-management-db
+          name: user_management_db
           property: password
     plan: free
     autoDeploy: true
@@ -30,7 +29,6 @@ services:
     dockerfilePath: ./insight-compass-researcher-app/Dockerfile
     dockerContext: ./insight-compass-researcher-app
     buildCommand: npm install && npm run build
-    startCommand: serve -s build
     plan: free
     autoDeploy: true
 
@@ -40,7 +38,6 @@ services:
     repo: https://github.com/deepgahlot11/company_research_platform
     dockerfilePath: ./COMPANY-RESEARCHER/Dockerfile
     dockerContext: ./COMPANY-RESEARCHER
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port 8000
     envVars:
       - key: GOOGLE_API_KEY
         value: AIzaSyDe0WzZzZLvTALYe9Otpur8hg9VVJ5b_B4
@@ -52,7 +49,7 @@ services:
     autoDeploy: true
 
 databases:
-  - name: user-management-db
-    databaseName: user-management
+  - name: user_management_db
+    databaseName: user_management
     user: testuser_readwrite
     plan: free
