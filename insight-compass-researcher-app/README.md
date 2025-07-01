@@ -1,49 +1,73 @@
-# Company Research platform - frontend
+# Welcome to your Lovable project
 
-**React code credit: lovable.dev**
+## Project info
 
-Just 3 Prompts used to create app -
+**URL**: https://lovable.dev/projects/8ad3c4f7-046f-4260-bee3-05f9b8222de2
 
+## How can I edit this code?
+
+There are several ways of editing your application.
+
+**Use Lovable**
+
+Simply visit the [Lovable Project](https://lovable.dev/projects/8ad3c4f7-046f-4260-bee3-05f9b8222de2) and start prompting.
+
+Changes made via Lovable will be committed automatically to this repo.
+
+**Use your preferred IDE**
+
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+
+Follow these steps:
+
+```sh
+# Step 1: Clone the repository using the project's Git URL.
+git clone <YOUR_GIT_URL>
+
+# Step 2: Navigate to the project directory.
+cd <YOUR_PROJECT_NAME>
+
+# Step 3: Install the necessary dependencies.
+npm i
+
+# Step 4: Start the development server with auto-reloading and an instant preview.
+npm run dev
 ```
-1. 
-  I need to create an app for Company Researcher, I need to have a login/signup page with minimum details to have first name, last name , email id as user name, new password for signup. For login email id and password are enough. Create dummy endpoints so to easily integrate with backend rest APIs. After login, landing page will be simple where on left hand side pane will take input like gemini and right hand pane will show results. These could  be user inputs -
-  
-  * company: str - A company to research
-  * extraction_schema: Optional[dict] - A JSON schema for the output
-  * user_notes: Optional[str] - Any additional notes about the company from the user
-  
-  If above schema is not input only company name would be sufficient so company name is mandatory as text
-  
-  For these inputs create dummy endpoint integration with rest API which i will integrate later.
 
-2.
-  In place of dummy login integrate /api/auth/login endpoint and for sign up integrate /api/auth/signup endpoints. With current code I am getting Login failed even though after successful login API call I am getting token as
-  
-  {
-      "token": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJkZWVwZ2FobG90MTIzQGdtYWlsLmNvbSIsImlhdCI6MTc1MDY2OTU2OCwiZXhwIjoxNzUwNzA1NTY4fQ.Km-LEtas-MbgqsGPtXrsZnVs_1hly5imr8WKo9DTeezBVYhBTDTOy1-qkrRCTe1mRmRIoTt3tZ8eydrYNmpqaQ"
-  }
-  
-  Complete code if I get this token as login successful and redirect to landing page. Also set the token in session and when logout is clicked remove the token from browser session
-3. 
-  Landing page request api is http://localhost:8000/analyze & request payload is where company is mandatory, extraction_schema, user_notes is optional. Company name looks good on the top in Right hand pane but below content should be dynamic created based on response json
-  
-  {
-      "company": "Mahindra & Mahindra",
-      "extraction_schema": {
-        "founded_year": "int",
-        "headquarters": "str",
-        "industry": "str"
-      },
-      "user_notes": "Include details about recent partnerships"
-    }
-  
-  Response is something like, but it is dynamic it could have n number of json variables depending on extraction schema
-  
-  {
-      "info": {
-          "founded_year": 1945,
-          "headquarters": "Mumbai, India",
-          "industry": "Consumer Durables"
-      }
-  }
-```
+**Edit a file directly in GitHub**
+
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
+
+**Use GitHub Codespaces**
+
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
+
+## What technologies are used for this project?
+
+This project is built with:
+
+- Vite
+- TypeScript
+- React
+- shadcn-ui
+- Tailwind CSS
+
+## How can I deploy this project?
+
+Simply open [Lovable](https://lovable.dev/projects/8ad3c4f7-046f-4260-bee3-05f9b8222de2) and click on Share -> Publish.
+
+## Can I connect a custom domain to my Lovable project?
+
+Yes, you can!
+
+To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+
+Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)

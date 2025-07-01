@@ -1,4 +1,5 @@
 
+
 export interface CompanyResearchRequest {
   company: string;
   extraction_schema?: Record<string, string>;
@@ -13,3 +14,12 @@ export interface CompanyResearchResponse {
   };
   message?: string;
 }
+
+export interface RealTimeUpdatesProps {
+  company: string;
+  userNotes?: string;
+  onComplete: (data: any) => void;
+  onError: (error: string) => void;
+  isActive: boolean;
+}
+

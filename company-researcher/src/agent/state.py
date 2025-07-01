@@ -36,34 +36,48 @@ DEFAULT_EXTRACTION_SCHEMA = {
 
 @dataclass(kw_only=True)
 class InputState:
-    """Input state defines the interface between the graph and the user (external API)."""
-
+    """
+    InputState: Defines the initial input from the user or API.
+    This is passed to the graph or individual phase endpoints.
+    """
     company: str
     extraction_schema: dict[str, Any] = field(default_factory=lambda: DEFAULT_EXTRACTION_SCHEMA)
     user_notes: Optional[str] = field(default=None)
+
+    # Add these optional fields so you can use them in stream steps
+    search_queries: Optional[list[str]] = field(default=None)
+    search_results: Optional[list[dict]] = field(default=None)
+    completed_notes: list[str] = field(default_factory=list)
+    info: Optional[dict[str, Any]] = field(default=None)
+    is_satisfactory: Optional[bool] = field(default=None)
+    reflection_steps_taken: int = field(default=0)
 
 
 @dataclass(kw_only=True)
 class OverallState:
-    """Full state passed through the graph including intermediate values."""
-
+    """
+    OverallState: Tracks the evolving state of the LangGraph agent across all phases.
+    It is updated and carried between nodes in the graph.
+    """
     company: str
     extraction_schema: dict[str, Any] = field(default_factory=lambda: DEFAULT_EXTRACTION_SCHEMA)
     user_notes: Optional[str] = field(default=None)
 
-    search_queries: list[str] = field(default=None)
-    search_results: list[dict] = field(default=None)
+    search_queries: Optional[list[str]] = field(default=None)
+    search_results: Optional[list[dict]] = field(default=None)
 
     completed_notes: Annotated[list[str], operator.add] = field(default_factory=list)
-    info: dict[str, Any] = field(default=None)
+    info: Optional[dict[str, Any]] = field(default=None)
 
-    is_satisfactory: bool = field(default=None)
+    is_satisfactory: Optional[bool] = field(default=None)
     reflection_steps_taken: int = field(default=0)
 
 
 @dataclass(kw_only=True)
 class OutputState:
-    """The response object for the end user."""
-
+    """
+    OutputState: Final result that will be returned to the API caller
+    once the LangGraph has completed its execution.
+    """
     info: dict[str, Any]
-    search_results: list[dict] = field(default=None)
+    search_results: Optional[list[dict]] = field(default=None)

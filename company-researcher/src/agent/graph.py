@@ -85,15 +85,19 @@ async def research_company(state: OverallState, config: RunnableConfig) -> dict[
             max_results=max_search_results,
             include_raw_content=True,
             topic="general",
-        ) for query in state.search_queries
+        ) for query in (state.search_queries or [])
     ]
 
     search_docs = await asyncio.gather(*search_tasks)
+
+    #for doc in search_docs:
+     #   print("\n🔎 Tavily raw result:", doc)
 
     deduplicated_search_docs = deduplicate_sources(search_docs)
     source_str = format_sources(
         deduplicated_search_docs, max_tokens_per_source=1000, include_raw_content=True
     )
+    # print("\n📄 Formatted source content being passed to Gemini:\n", source_str)
 
     p = INFO_PROMPT.format(
         info=json.dumps(state.extraction_schema, indent=2),
@@ -102,13 +106,13 @@ async def research_company(state: OverallState, config: RunnableConfig) -> dict[
         user_notes=state.user_notes,
     )
     result = await gemini_model.ainvoke(p)
-
+    print("\n Result from Gemini:\n", result.content)
     state_update = {
         "completed_notes": [str(result.content)],
     }
 
     if configurable.include_search_results:
-        state_update["search_results"] = deduplicated_search_docs
+        state_update["search_results"] = cast(list[str], deduplicated_search_docs)
 
     return state_update
 
@@ -160,6 +164,7 @@ def reflection(state: OverallState) -> dict[str, Any]:
     else:
         return {
             "is_satisfactory": result.is_satisfactory,
+            "missing_fields": result.missing_fields,
             "search_queries": result.search_queries,
             "reflection_steps_taken": state.reflection_steps_taken + 1,
         }
@@ -198,3 +203,18 @@ builder.add_edge("gather_notes_extract_schema", "reflection")
 builder.add_conditional_edges("reflection", route_from_reflection)
 
 graph = builder.compile()
+
+from langgraph.graph import StateGraph
+from langgraph.constants import END
+
+# Phase 1: Research
+async def run_research(input: InputState) -> dict:
+    return await research_company.invoke(input)
+
+# Phase 2: Extraction
+async def run_extraction(input: InputState) -> dict:
+    return await gather_notes_extract_schema.invoke(input)
+
+# Phase 3: Reflection
+async def run_reflection(input: InputState) -> dict:
+    return await reflection.invoke(input)

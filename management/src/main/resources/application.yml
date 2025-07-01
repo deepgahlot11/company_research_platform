@@ -1,3 +1,5 @@
+server:
+  port: 8085
 spring:
   application:
     name: "User Management"
@@ -17,18 +19,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-
-  # Optional: for troubleshooting
   sql:
     init:
       mode: always
-
-# Server port (optional)
-server:
-  port: 8085
-
-# langraph agent url
-external:
-  agent:
-    url: http://host.docker.internal:8000
-
+jwt:
+  issuer: user-management-api

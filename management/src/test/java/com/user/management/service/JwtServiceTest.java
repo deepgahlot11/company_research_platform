@@ -1,73 +1,127 @@
 package com.user.management.service;
 
 import com.user.management.entity.User;
+import com.user.management.repository.UserRepository;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.Date;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
+/**
+ * Unit‑tests for {@link JwtService}.
+ */
+@ExtendWith(MockitoExtension.class)
 class JwtServiceTest {
 
+    private static final String ISSUER = "user-management-api";
+    private static final String USER_EMAIL = "test@example.com";
+
     private JwtService jwtService;
+
+    @Mock
+    private UserRepository userRepository;   // will be injected into service
+
     private User mockUser;
 
     @BeforeEach
     void setUp() {
-        jwtService = new JwtService();
+        jwtService = new JwtService(userRepository);
+        // Inject the issuer value that would normally come from application.properties
+        ReflectionTestUtils.setField(jwtService, "issuer", ISSUER);
 
         mockUser = new User();
-        mockUser.setEmail("test@example.com");
+        mockUser.setEmail(USER_EMAIL);
         mockUser.setPassword("password123");
         mockUser.setFirstName("Test");
         mockUser.setLastName("User");
     }
 
+    /* ------------------------------------------------------------------ */
+    /*  generate / extract                                                */
+    /* ------------------------------------------------------------------ */
+
     @Test
-    void testGenerateToken_ShouldContainUsername() {
+    void generateToken_containsSubjectAndIssuer() {
         String token = jwtService.generateToken(mockUser);
         assertNotNull(token);
-        assertTrue(token.length() > 0);
 
-        String username = jwtService.extractUsername(token);
-        assertEquals("test@example.com", username);
+        Claims claims = jwtService.getClaims(token);
+        assertEquals(USER_EMAIL, claims.getSubject());
+        assertEquals(ISSUER, claims.getIssuer());
     }
 
     @Test
-    void testExtractUsername_ShouldReturnCorrectUsername() {
+    void extractUsername_returnsCorrectEmail() {
         String token = jwtService.generateToken(mockUser);
-        String extractedUsername = jwtService.extractUsername(token);
-        assertEquals(mockUser.getUsername(), extractedUsername);
+        assertEquals(USER_EMAIL, jwtService.extractUsername(token));
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  isTokenValid                                                      */
+    /* ------------------------------------------------------------------ */
+
+    @Test
+    void isTokenValid_trueForMatchingUser() {
+        String token = jwtService.generateToken(mockUser);
+        assertTrue(jwtService.isTokenValid(token, mockUser));
     }
 
     @Test
-    void testIsTokenValid_ShouldReturnTrueForValidToken() {
+    void isTokenValid_falseForMismatchedUser() {
         String token = jwtService.generateToken(mockUser);
-        boolean isValid = jwtService.isTokenValid(token, mockUser);
-        assertTrue(isValid);
+
+        User another = new User();
+        another.setEmail("other@example.com");
+
+        assertFalse(jwtService.isTokenValid(token, another));
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  validateToken                                                     */
+    /* ------------------------------------------------------------------ */
+
+    @Test
+    void validateToken_trueWhenUserExistsAndIssuerMatches() {
+        when(userRepository.findByEmail(USER_EMAIL)).thenReturn(Optional.of(mockUser));
+
+        String token = jwtService.generateToken(mockUser);
+        assertTrue(jwtService.validateToken(token));
+
+        verify(userRepository).findByEmail(USER_EMAIL);
     }
 
     @Test
-    void testIsTokenValid_ShouldReturnFalseForInvalidUser() {
+    void validateToken_falseWhenUserNotInDb() {
+        when(userRepository.findByEmail(USER_EMAIL)).thenReturn(Optional.empty());
+
         String token = jwtService.generateToken(mockUser);
-
-        User invalidUser = new User();
-        invalidUser.setEmail("another@example.com");
-
-        boolean isValid = jwtService.isTokenValid(token, invalidUser);
-        assertFalse(isValid);
+        assertFalse(jwtService.validateToken(token));
     }
 
     @Test
-    void testIsTokenExpired_ShouldReturnFalseForNewToken() {
-        String token = jwtService.generateToken(mockUser);
-        boolean isExpired = jwtService.isTokenValid(token, mockUser);
-        assertTrue(isExpired); // Actually valid, so this is just double-check
-    }
+    void validateToken_falseWhenIssuerIsWrong() {
+        when(userRepository.findByEmail(USER_EMAIL)).thenReturn(Optional.of(mockUser));
 
-    @Test
-    void testGenerateToken_NotNullOrEmpty() {
-        String token = jwtService.generateToken(mockUser);
-        assertNotNull(token);
-        assertFalse(token.isEmpty());
+        // manually craft a token with a wrong issuer
+        String badIssuerToken = Jwts.builder()
+                .setSubject(USER_EMAIL)
+                .setIssuer("some-other-issuer")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 60_000))
+                .signWith(jwtService.getSignKey(), SignatureAlgorithm.HS512)
+                .compact();
+
+        assertFalse(jwtService.validateToken(badIssuerToken));
     }
 }
