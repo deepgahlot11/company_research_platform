@@ -36,8 +36,8 @@ services:
     name: langgraph-agent
     env: docker
     repo: https://github.com/deepgahlot11/company_research_platform
-    dockerfilePath: ./COMPANY-RESEARCHER/Dockerfile
-    dockerContext: ./COMPANY-RESEARCHER
+    dockerfilePath: ./company-researcher/Dockerfile
+    dockerContext: ./company-researcher
     envVars:
       - key: GOOGLE_API_KEY
         value: AIzaSyDe0WzZzZLvTALYe9Otpur8hg9VVJ5b_B4
