@@ -11,15 +11,15 @@ services:
       - key: SPRING_DATASOURCE_URL
         fromDatabase:
           name: user-management-db
-          property: jdbc:postgres://testuser_readwrite:root@your-db-host:5432/user-management
+          property: jdbcConnectionString
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: user-management-db
-          property: testuser_readwrite
+          property: user
       - key: SPRING_DATASOURCE_PASSWORD
         fromDatabase:
           name: user-management-db
-          property: root
+          property: password
     plan: free
     autoDeploy: true
 
@@ -55,5 +55,4 @@ databases:
   - name: user-management-db
     databaseName: user-management
     user: testuser_readwrite
-    password: root
     plan: free
