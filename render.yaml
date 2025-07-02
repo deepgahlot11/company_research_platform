@@ -19,6 +19,12 @@ services:
         fromDatabase:
           name: user_management_db
           property: password
+      - key: ENV
+        value: render
+      - key: FASTAPI_BASE_URL
+        value: https://langgraph-agent-0n94.onrender.com
+      - key: FASTAPI_SECRET_KEY
+        value: spring-secret-key
     plan: free
     autoDeploy: true
 
@@ -29,6 +35,11 @@ services:
     dockerfilePath: ./insight-compass-researcher-app/Dockerfile
     dockerContext: ./insight-compass-researcher-app
     buildCommand: npm install && npm run build
+    envVars:
+      - key: ENV
+        value: render
+      - key: API_BASE_URL
+        value: https://spring-boot-backend-8qlb.onrender.com/
     plan: free
     autoDeploy: true
 
@@ -45,6 +56,8 @@ services:
         value: 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
       - key: SECRET_KEY
         value: spring-secret-key
+      - key: ENV
+        value: render
     plan: free
     autoDeploy: true
 

@@ -27,9 +27,23 @@ from agent.state import DEFAULT_EXTRACTION_SCHEMA, InputState, OverallState
 # --------------------------------------------------------------------------- #
 app = FastAPI()
 
+# Read environment variable to check deployment environment
+ENV = os.getenv("ENV", "local")
+
+if ENV == "render":
+    allowed_origins = [
+        "https://react-frontend-xyz.onrender.com",   # your React frontend Render URL
+        "https://spring-boot-backend-xyz.onrender.com"  # your Spring backend Render URL
+    ]
+else:
+    allowed_origins = [
+        "http://localhost:8080",  # React dev server
+        "http://localhost:8085"   # Spring Boot locally
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://localhost:8085"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -24,3 +24,7 @@ spring:
       mode: always
 jwt:
   issuer: user-management-api
+
+fastapi:
+  base-url: ${FASTAPI_BASE_URL:http://host.docker.internal:8000}  # default for docker-compose
+  secret-key: ${FASTAPI_SECRET_KEY:spring-secret-key}

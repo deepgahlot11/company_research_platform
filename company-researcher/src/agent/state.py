@@ -44,7 +44,7 @@ class InputState:
     extraction_schema: dict[str, Any] = field(default_factory=lambda: DEFAULT_EXTRACTION_SCHEMA)
     user_notes: Optional[str] = field(default=None)
 
-    # Add these optional fields so you can use them in stream steps
+    # Add these optional fields for use in stream steps
     search_queries: Optional[list[str]] = field(default=None)
     search_results: Optional[list[dict]] = field(default=None)
     completed_notes: list[str] = field(default_factory=list)

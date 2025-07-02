@@ -1,3 +1,5 @@
+# Utility functions for processing and formatting Tavily API search results
+
 def deduplicate_sources(search_response: dict | list[dict]) -> list[dict]:
     """
     Takes either a single search response or list of responses from Tavily API and de-duplicates them based on the URL.
@@ -12,8 +14,10 @@ def deduplicate_sources(search_response: dict | list[dict]) -> list[dict]:
     """
     # Convert input to list of results
     if isinstance(search_response, dict):
+        # Single response dict: extract 'results' list
         sources_list = search_response["results"]
     elif isinstance(search_response, list):
+        # List of response dicts: extract and combine all 'results' lists
         sources_list = []
         for response in search_response:
             if isinstance(response, dict) and "results" in response:
@@ -26,8 +30,8 @@ def deduplicate_sources(search_response: dict | list[dict]) -> list[dict]:
         )
 
     # Deduplicate by URL
-    unique_urls = set()
-    unique_sources_list = []
+    unique_urls = set()  # Track seen URLs
+    unique_sources_list = []  # Store unique sources
     for source in sources_list:
         if source["url"] not in unique_urls:
             unique_urls.add(source["url"])
@@ -54,9 +58,10 @@ def format_sources(
     Returns:
         str: Formatted string with deduplicated sources
     """
-    # Format output
+    # Format output string for all sources
     formatted_text = "Sources:\n\n"
     for source in sources_list:
+        # Add title and URL for each source
         formatted_text += f"Source {source['title']}:\n===\n"
         formatted_text += f"URL: {source['url']}\n===\n"
         formatted_text += (
@@ -70,6 +75,7 @@ def format_sources(
             if raw_content is None:
                 raw_content = ""
                 print(f"Warning: No raw_content found for source {source['url']}")
+            # Truncate raw_content if it exceeds char_limit
             if len(raw_content) > char_limit:
                 raw_content = raw_content[:char_limit] + "... [truncated]"
             formatted_text += f"Full source content limited to {max_tokens_per_source} tokens: {raw_content}\n\n"
@@ -80,6 +86,7 @@ def format_sources(
 def format_all_notes(completed_notes: list[str]) -> str:
     """Format a list of notes into a string"""
     formatted_str = ""
+    # Enumerate through all notes and format each with a header
     for idx, company_notes in enumerate(completed_notes, 1):
         formatted_str += f"""
 {'='*60}

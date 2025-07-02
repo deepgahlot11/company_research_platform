@@ -25,6 +25,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgresdb:5432/user-management
       SPRING_DATASOURCE_USERNAME: testuser_readwrite
       SPRING_DATASOURCE_PASSWORD: root
+      FASTAPI_BASE_URL: http://host.docker.internal:8000
+      FASTAPI_SECRET_KEY: spring-secret-key
     depends_on:
       - postgresdb
     restart: unless-stopped
