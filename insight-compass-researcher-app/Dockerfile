@@ -10,6 +10,10 @@ RUN npm run build || (echo "Vite build failed!" && exit 1)
 # NGINX stage
 FROM nginx:alpine
 
+# Pass API_BASE_URL into NGINX
+ARG API_BASE_URL
+ENV API_BASE_URL=${API_BASE_URL}
+
 # Copy built frontend
 COPY --from=build /app/dist /usr/share/nginx/html
 
