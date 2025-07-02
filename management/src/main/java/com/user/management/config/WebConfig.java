@@ -14,7 +14,6 @@ public class WebConfig implements WebMvcConfigurer {
 
         if ("render".equalsIgnoreCase(env)) {
             allowedOrigins.add("https://react-frontend-xyz.onrender.com");   // React frontend Render URL
-            allowedOrigins.add("https://spring-boot-backend-xyz.onrender.com"); // (optional)
         } else {
             allowedOrigins.add("http://localhost:8080");
             allowedOrigins.add("http://localhost:8085");
