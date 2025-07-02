@@ -40,6 +40,8 @@ services:
         value: render
       - key: API_BASE_URL
         value: https://spring-boot-backend-8qlb.onrender.com
+      - key: VITE_API_BASE_URL
+        value: https://spring-boot-backend-8qlb.onrender.com
     plan: free
     autoDeploy: true
 
