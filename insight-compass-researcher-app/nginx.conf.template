@@ -10,16 +10,9 @@ server {
     }
 
     location /api/ {
-        # CORS for frontend → backend calls
-        if ($request_method = 'OPTIONS') {
-            add_header 'Access-Control-Allow-Origin' "$http_origin" always;
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
-            add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization' always;
-            add_header 'Access-Control-Allow-Credentials' 'true' always;
-            return 204;
-        }
-
+        proxy_pass ${BACKEND_URL};
         proxy_http_version 1.1;
+
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -29,13 +22,8 @@ server {
         add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization' always;
         add_header 'Access-Control-Allow-Credentials' 'true' always;
 
-        # ENV-based dynamic routing
-        set $backend_url http://management:8085;
-
-        if ($host ~* "render\.com$") {
-            set $backend_url https://spring-boot-backend-8qlb.onrender.com;
+        if ($request_method = 'OPTIONS') {
+            return 204;
         }
-
-        proxy_pass $backend_url;
     }
 }
