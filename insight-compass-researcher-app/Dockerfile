@@ -17,4 +17,4 @@ COPY nginx.template.conf /etc/nginx/templates/default.conf.template
 # default for local docker‑compose; Render overrides via env var
 ENV API_BASE_URL=http://management:8085/
 
-CMD ["sh", "-c", "envsubst < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]
+CMD ["sh", "-c", "envsubst '${API_BASE_URL}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]
