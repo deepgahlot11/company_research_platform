@@ -10,17 +10,14 @@ RUN npm run build || (echo "Vite build failed!" && exit 1)
 # NGINX stage
 FROM nginx:alpine
 
-# Pass API_BASE_URL into NGINX
-ARG API_BASE_URL
-ENV API_BASE_URL=${API_BASE_URL}
-
-# Copy built frontend
+# Copy built frontend to NGINX html folder
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy template nginx config
-COPY nginx.conf.template /etc/nginx/templates/nginx.conf.template
+# Copy the NGINX template config
+COPY nginx.template.conf /etc/nginx/templates/default.conf.template
 
-# Runtime: substitute env vars into nginx.conf
-ENV API_BASE_URL=http://management:8085/
+# Set default API base URL (can be overridden by env in docker-compose or render.yaml)
+ENV API_BASE_URL=http://management:8085
 
-CMD ["/bin/sh", "-c", "envsubst < /etc/nginx/templates/nginx.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]
+# Replace placeholders in the NGINX config with env values at runtime and start NGINX
+CMD ["sh", "-c", "envsubst < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
