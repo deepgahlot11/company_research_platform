@@ -39,7 +39,7 @@ services:
       - key: ENV
         value: render
       - key: API_BASE_URL
-        value: https://spring-boot-backend-8qlb.onrender.com/
+        value: https://spring-boot-backend-8qlb.onrender.com
     plan: free
     autoDeploy: true
 

@@ -13,7 +13,7 @@ public class WebConfig implements WebMvcConfigurer {
         List<String> allowedOrigins = new ArrayList<>();
 
         if ("render".equalsIgnoreCase(env)) {
-            allowedOrigins.add("https://react-frontend-xyz.onrender.com");   // React frontend Render URL
+            allowedOrigins.add("https://react-frontend-k26s.onrender.com");   // React frontend Render URL
         } else {
             allowedOrigins.add("http://localhost:8080");
             allowedOrigins.add("http://localhost:8085");
