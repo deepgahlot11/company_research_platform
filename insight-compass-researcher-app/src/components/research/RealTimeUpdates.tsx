@@ -83,7 +83,7 @@ export const RealTimeUpdates: React.FC<RealTimeUpdatesProps> = ({
     }
 
     const eventSource = new EventSource(
-      `${API_BASE_URL}api/stream?${params.toString()}`
+      `${API_BASE_URL}/api/stream?${params.toString()}`
     );
 
     eventSourceRef.current = eventSource;

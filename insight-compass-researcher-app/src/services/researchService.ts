@@ -9,7 +9,7 @@ export const researchService = {
     const token = sessionStorage.getItem('authToken');
     
     try {
-      const response = await fetch(`${API_BASE_URL}api/analyze`, {
+      const response = await fetch(`${API_BASE_URL}/api/analyze`, {
         method: 'POST',
         credentials: "include",
         headers: {

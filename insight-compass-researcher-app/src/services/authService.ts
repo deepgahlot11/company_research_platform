@@ -18,7 +18,7 @@ export const authService = {
     console.log('Login attempt:', credentials);
     
     try {
-      const response = await fetch(`${API_BASE_URL}api/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,7 +65,7 @@ export const authService = {
     console.log('Signup attempt:', credentials);
     
     try {
-      const response = await fetch(`${API_BASE_URL}api/auth/signup`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
