@@ -37,6 +37,8 @@ services:
     container_name: insight-react-frontend
     ports:
       - "8080:80"
+    environment:
+      API_BASE_URL: http://management:8085/
     depends_on:
       - management
     restart: unless-stopped
