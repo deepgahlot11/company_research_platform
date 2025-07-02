@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import uvicorn  # only used when we run python main.py directly
 
 from agent.graph import (
     graph,
@@ -25,29 +26,34 @@ from agent.state import DEFAULT_EXTRACTION_SCHEMA, InputState, OverallState
 # --------------------------------------------------------------------------- #
 # FastAPI app & CORS
 # --------------------------------------------------------------------------- #
-app = FastAPI()
+app = FastAPI(title="Company‑Research LangGraph API")
 
-# Read environment variable to check deployment environment
-ENV = os.getenv("ENV", "local")
+ENV = os.getenv("ENV", "local").lower()
 
-if ENV == "render":
-    allowed_origins = [
-        "https://react-frontend-xyz.onrender.com",   # your React frontend Render URL
-        "https://spring-boot-backend-xyz.onrender.com"  # your Spring backend Render URL
-    ]
-else:
-    allowed_origins = [
-        "http://localhost:8080",  # React dev server
-        "http://localhost:8085"   # Spring Boot locally
-    ]
+ALLOWED_ORIGINS_RENDER = [
+    "https://react-frontend-k26s.onrender.com",     # <-- update with real URL
+    "https://spring-boot-backend-8qlb.onrender.com",
+]
+ALLOWED_ORIGINS_LOCAL = [
+    "http://localhost:8080",  # React dev
+    "http://localhost:8085",  # Spring Boot
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=ALLOWED_ORIGINS_RENDER if ENV == "render" else ALLOWED_ORIGINS_LOCAL,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --------------------------------------------------------------------------- #
+# Health‑check (Render hits "/" automatically)
+# --------------------------------------------------------------------------- #
+@app.get("/", tags=["health"])
+async def root():
+    return {"status": "ok", "env": ENV}
+
 
 # --------------------------------------------------------------------------- #
 # Models
@@ -59,7 +65,7 @@ class AnalyzeRequest(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
-# Small helper for SSE messages
+# SSE helper
 # --------------------------------------------------------------------------- #
 def sse(msg: str, *, type_: str = "update", extra: Optional[dict] = None) -> str:
     payload: dict = {
@@ -72,12 +78,15 @@ def sse(msg: str, *, type_: str = "update", extra: Optional[dict] = None) -> str
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
+SECURITY_HEADER = os.getenv("SECRET_KEY", "spring-secret-key")
+
+
 # --------------------------------------------------------------------------- #
-# 1️⃣  Simple POST that runs the *whole* graph at once
+# Fire the entire LangGraph in one shot
 # --------------------------------------------------------------------------- #
-@app.post("/analyze")
+@app.post("/analyze", tags=["analyze"])
 async def analyze(request: AnalyzeRequest, raw_request: Request):
-    if raw_request.headers.get("x-internal-key") != os.getenv("SECRET_KEY"):
+    if raw_request.headers.get("x-internal-key") != SECURITY_HEADER:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     inputs = InputState(
@@ -85,116 +94,109 @@ async def analyze(request: AnalyzeRequest, raw_request: Request):
         extraction_schema=request.extraction_schema or DEFAULT_EXTRACTION_SCHEMA,
         user_notes=request.user_notes or "",
     )
-    try:
-        return await graph.ainvoke(inputs)
-    except Exception as exc:  # noqa: BLE001
-        return {
-            "error": str(exc),
-            "hint": "Make sure schema is valid and matches expected types like str/int.",
-        }
+    return await graph.ainvoke(inputs)
 
 
 # --------------------------------------------------------------------------- #
-# 2️⃣  Streaming endpoint (Server‑Sent Events)
+# Streaming endpoint (Server‑Sent Events)
 # --------------------------------------------------------------------------- #
-@app.get("/analyze/stream")
+@app.get("/analyze/stream", tags=["analyze"])
 async def analyze_stream(
     raw_request: Request,
     company: str,
     extraction_schema: Optional[str] = Query(default=None),
     user_notes: Optional[str] = Query(default=""),
 ):
-    print("Incoming security header value: ",raw_request.headers.get("x-internal-key"))
-    if raw_request.headers.get("x-internal-key") != os.getenv("SECRET_KEY"):
+    if raw_request.headers.get("x-internal-key") != SECURITY_HEADER:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    # print("Incoming /analyze/stream request:", dict(raw_request.query_params))
-    # ----- decode schema (if provided) ------------------------------------- #
+
+    # Parse / fallback schema
     if extraction_schema:
         try:
             schema = json.loads(extraction_schema)
             if not isinstance(schema, dict):
-                raise ValueError("must be a JSON object")
-        except Exception as exc:  # noqa: BLE001
-            raise HTTPException(
-                status_code=400, detail=f"Invalid extraction_schema JSON: {exc}"
-            ) from exc
+                raise ValueError("extraction_schema must be a JSON object")
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Bad schema JSON: {exc}") from exc
     else:
         schema = DEFAULT_EXTRACTION_SCHEMA
 
-    base_state = OverallState(
-        company=company,
-        extraction_schema=schema,
-        user_notes=user_notes or "",
-    )
+    base_state = OverallState(company=company, extraction_schema=schema, user_notes=user_notes)
 
     async def event_generator():
         try:
-            # ––– 1. queries –––
             yield sse("Starting analysis …")
+
+            # 1. Generate queries
             yield sse("Generating search queries …")
-            q_result = generate_queries(base_state, {})
-            queries = q_result["search_queries"]
+            q_res = generate_queries(base_state, {})
+            queries = q_res["search_queries"]
             yield sse("Queries generated.", extra={"queries": queries})
-            # print("Generated queries:", queries)
 
-            # ––– 2. research –––
-            yield sse("Calling Tavily API ⏳ …")
-            st_with_q = OverallState(**{**base_state.__dict__, "search_queries": queries})
-            r_result = await research_company(st_with_q, {})
-            found = len(r_result.get("search_results", []))
-            yield sse(f"Research complete — {found} documents found.", extra={"result_count": found})
-
-            # ––– 3. extraction –––
-            ex_input = OverallState(**{**st_with_q.__dict__, **r_result})
-            yield sse("Extracting structured fields …")
-            ex_result = gather_notes_extract_schema(ex_input)
-            fields = list(ex_result["info"].keys())
-            yield sse("Extraction done.", extra={"fields": fields})
-
-            # ––– 4. reflection –––
-            ref_input = OverallState(**{**ex_input.__dict__, **ex_result})
-            yield sse("Running reflection …")
-            ref_result = reflection(ref_input)
-
-            if ref_result.get("is_satisfactory"):
-                yield sse("Reflection passed.", type_="success")
-            else:
-                missing = ", ".join(ref_result.get("missing_fields", []))
-                yield sse(f"Reflection failed — missing: {missing}", type_="warning")
-
-            # ––– 5. finish –––
+            # 2. Research
+            yield sse("Researching via Tavily …")
+            st_q = OverallState(**{**base_state.__dict__, "search_queries": queries})
+            r_res = await research_company(st_q, {})
             yield sse(
-                "Analysis complete 🎉",
-                type_="complete",
-                extra={"result": {"info": ex_result["info"]}},
+                f"Research complete — {len(r_res.get('search_results', []))} docs.",
+                extra={"result_count": len(r_res.get("search_results", []))},
             )
+
+            # 3. Extraction
+            ex_input = OverallState(**{**st_q.__dict__, **r_res})
+            yield sse("Extracting structured info …")
+            ex_res = gather_notes_extract_schema(ex_input)
+            yield sse("Extraction done.", extra={"fields": list(ex_res['info'].keys())})
+
+            # 4. Reflection
+            ref_input = OverallState(**{**ex_input.__dict__, **ex_res})
+            yield sse("Running reflection …")
+            ref_res = reflection(ref_input)
+            if ref_res.get("is_satisfactory"):
+                yield sse("Reflection passed ✔", type_="success")
+            else:
+                yield sse(
+                    "Reflection failed",
+                    type_="warning",
+                    extra={"missing": ref_res.get("missing_fields", [])},
+                )
+
+            # 5. Done
+            yield sse("Analysis complete 🎉", type_="complete", extra={"result": ex_res})
             await asyncio.sleep(0.05)
 
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             yield sse(f"Error: {exc}", type_="error")
 
-    headers = {"Cache-Control": "no-cache"}
-    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=headers)
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 
 
 # --------------------------------------------------------------------------- #
-# 3️⃣  Optional single‑phase debug endpoints
+# Debug single‑phase endpoints (optional)
 # --------------------------------------------------------------------------- #
-@app.post("/analyze/research")
+@app.post("/analyze/research", include_in_schema=False)
 async def debug_research(req: AnalyzeRequest):
     st = OverallState(
         company=req.company,
         extraction_schema=req.extraction_schema or DEFAULT_EXTRACTION_SCHEMA,
-        user_notes=req.user_notes or "",
+        user_notes=req.user_notes,
     )
     return await research_company(st, {})
 
 
-@app.post("/analyze/extract")
+@app.post("/analyze/extract", include_in_schema=False)
 async def debug_extract(state: dict):
     return gather_notes_extract_schema(OverallState(**state))
 
 
-@app.post("/analyze/reflect")
+@app.post("/analyze/reflect", include_in_schema=False)
 async def debug_reflect(state: dict):
     return reflection(OverallState(**state))
+
+
+# --------------------------------------------------------------------------- #
+# Entrypoint when this file is executed directly (e.g. local `python main.py`)
+# --------------------------------------------------------------------------- #
+if __name__ == "__main__":  # pragma: no cover
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("agent.main:app", host="0.0.0.0", port=port, reload=False)

@@ -1,10 +1,12 @@
-# Use official slim Python base (compatible with all platforms)
+# Use official slim Python base (small, safe image)
 FROM python:3.11-slim
 
-# Install required system dependencies
-RUN apt-get update && apt-get install -y curl git build-essential tar && rm -rf /var/lib/apt/lists/*
+# Install system packages
+RUN apt-get update && apt-get install -y \
+    curl git build-essential tar \
+    && rm -rf /var/lib/apt/lists/*
 
-# Automatically detect architecture and install matching 'uv' binary
+# Install 'uv' based on system architecture
 RUN ARCH=$(uname -m) && \
     case "$ARCH" in \
       x86_64) UV_URL="https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-unknown-linux-gnu.tar.gz" ;; \
@@ -20,10 +22,10 @@ RUN ARCH=$(uname -m) && \
 # Set working directory
 WORKDIR /app
 
-# Copy project files into container
+# Copy project files
 COPY . .
 
-# Install project dependencies using 'uv'
+# Install all required Python dependencies
 RUN uv pip install --system -e . && \
     uv pip install --system \
       "langgraph>=0.2.52" \
@@ -35,8 +37,8 @@ RUN uv pip install --system -e . && \
       "uvicorn[standard]>=0.29.0" \
       "langgraph-cli[inmem]>=0.1.61"
 
-# Expose FastAPI port
+# Expose the API port
 EXPOSE 8000
 
-# Run your app
+# Start FastAPI app using uvicorn
 CMD ["uvicorn", "src.agent.main:app", "--host", "0.0.0.0", "--port", "8000"]
