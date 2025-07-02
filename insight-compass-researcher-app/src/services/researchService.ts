@@ -1,5 +1,6 @@
-
 import { CompanyResearchRequest, CompanyResearchResponse } from '@/types/research';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const researchService = {
   async researchCompany(request: CompanyResearchRequest): Promise<CompanyResearchResponse> {
@@ -8,7 +9,7 @@ export const researchService = {
     const token = sessionStorage.getItem('authToken');
     
     try {
-      const response = await fetch('http://localhost:8085/api/analyze', {
+      const response = await fetch(`${API_BASE_URL}api/analyze`, {
         method: 'POST',
         credentials: "include",
         headers: {

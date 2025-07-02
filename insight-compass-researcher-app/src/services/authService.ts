@@ -1,5 +1,7 @@
 import { LoginCredentials, SignupCredentials, AuthResponse } from '@/types/auth';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 // Helper to decode JWT payload
 function decodeJwtPayload(token: string): any {
   try {
@@ -16,7 +18,7 @@ export const authService = {
     console.log('Login attempt:', credentials);
     
     try {
-      const response = await fetch('http://localhost:8085/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,7 +65,7 @@ export const authService = {
     console.log('Signup attempt:', credentials);
     
     try {
-      const response = await fetch('http://localhost:8085/api/auth/signup', {
+      const response = await fetch(`${API_BASE_URL}api/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
