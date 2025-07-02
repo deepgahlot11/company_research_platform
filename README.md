@@ -2,6 +2,10 @@
 
 This project is a full-stack AI-driven platform for company research and information extraction. It combines React frontend, Spring Boot backend with JWT-based auth, LangGraph AI agent using FastAPI and Gemini/Tavily APIs, all containerized using Docker and orchestrated via Docker Compose.
 
+**Deployable on render.com as well**
+
+**Access at: https://react-frontend-k26s.onrender.com/**
+
 ## Architecture Overview
 
 **Diagrams**
