@@ -37,12 +37,12 @@ services:
       context: ./insight-compass-researcher-app
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: http://management:8085
+        VITE_API_BASE_URL: /api
     container_name: insight-react-frontend
     ports:
       - "8080:80"
     environment:
-      VITE_API_BASE_URL: http://management:8085
+      VITE_API_BASE_URL: /api
     depends_on:
       - management
     restart: unless-stopped
