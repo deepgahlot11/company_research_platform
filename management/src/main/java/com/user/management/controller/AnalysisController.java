@@ -14,6 +14,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 @RestController
@@ -82,25 +83,48 @@ public class AnalysisController {
 
     URI fastApiUri = builder.build(false).toUri();
 
-    // Build WebClient with headers
+    // Build WebClient with security header
     WebClient webClient = WebClient.builder()
             .defaultHeader("x-internal-key", SECRET_KEY)
             .build();
 
-    // Retry logic with exponential backoff
-    return webClient.get()
-            .uri(fastApiUri)
-            .accept(MediaType.TEXT_EVENT_STREAM)
-            .retrieve()
-            .bodyToFlux(String.class)
-            .retryWhen(Retry.backoff(5, Duration.ofSeconds(7))
-                    .filter(error -> {
-                      System.err.println("Retrying due to: " + error.getMessage());
-                      return true; // retry all errors, or filter by type if needed
-                    }))
-            .doOnError(error -> {
-              System.err.println("Final failure calling LangGraph agent: " + error.getMessage());
+    // Step 1: Ping / to warm up the FastAPI service
+    Mono<Boolean> healthCheck = webClient.get()
+            .uri(FASTAPI_BASE_URL + "/")
+            .exchangeToMono(response -> {
+              if (response.statusCode().is2xxSuccessful()) {
+                System.out.println("LangGraph health check passed.");
+                return Mono.just(true);
+              } else {
+                System.err.println("LangGraph health check failed with status: " + response.statusCode());
+                return Mono.just(false);
+              }
+            })
+            .retryWhen(Retry.backoff(5, Duration.ofSeconds(7)))
+            .onErrorResume(error -> {
+              System.err.println("Health check error: " + error.getMessage());
+              return Mono.just(false);
             });
-  }
 
+    // Step 2: After health check, call /analyze/stream
+    return healthCheck.flatMapMany(isHealthy -> {
+      if (!isHealthy) {
+        return Flux.error(new IllegalStateException("LangGraph agent is unavailable after retries."));
+      }
+
+      return webClient.get()
+              .uri(fastApiUri)
+              .accept(MediaType.TEXT_EVENT_STREAM)
+              .retrieve()
+              .bodyToFlux(String.class)
+              .retryWhen(Retry.backoff(3, Duration.ofSeconds(3))
+                      .filter(error -> {
+                        System.err.println("Retrying due to: " + error.getMessage());
+                        return true;
+                      }))
+              .doOnError(error -> {
+                System.err.println("Final failure calling LangGraph agent: " + error.getMessage());
+              });
+    });
+  }
 }
