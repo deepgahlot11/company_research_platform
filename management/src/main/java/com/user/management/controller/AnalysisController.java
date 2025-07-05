@@ -6,12 +6,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Optional;
-
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -25,125 +23,124 @@ import reactor.util.retry.Retry;
 @Slf4j
 @RestController
 @RequestMapping("/api")
+@RequiredArgsConstructor
 public class AnalysisController {
 
   @Value("${fastapi.base-url}")
-  private String FASTAPI_BASE_URL;
+  private String fastApiBaseUrl; // e.g. https://langgraph‑agent‑xxxx.onrender.com
 
   @Value("${fastapi.secret-key}")
-  private String SECRET_KEY;
+  private String secretKey; // must match FastAPI’s SECURITY_HEADER
 
   private final JwtService jwtService;
 
-  public AnalysisController(JwtService jwtService) {
-    this.jwtService = jwtService;
-  }
-
+  // --------------------------------------------------------------------- //
+  //  high‑level   /analyze POST  (non‑stream)                             //
+  // --------------------------------------------------------------------- //
   @PostMapping("/analyze")
   public ResponseEntity<?> analyze(
-          @RequestBody AnalyzeRequest request, HttpServletRequest httpRequest) {
-    RestTemplate restTemplate = new RestTemplate();
+      @RequestBody AnalyzeRequest request, HttpServletRequest servletReq) {
 
-    HttpHeaders headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.set("x-internal-key", SECRET_KEY);
-
-    HttpEntity<AnalyzeRequest> httpEntity = new HttpEntity<>(request, headers);
+    RestTemplate rt = new RestTemplate();
+    HttpHeaders hdr = new HttpHeaders();
+    hdr.setContentType(MediaType.APPLICATION_JSON);
+    hdr.set("x-internal-key", secretKey);
 
     try {
-      ResponseEntity<String> response =
-              restTemplate.postForEntity(FASTAPI_BASE_URL + "/analyze", httpEntity, String.class);
-      return ResponseEntity.ok(response.getBody());
+      ResponseEntity<String> resp =
+          rt.postForEntity(
+              fastApiBaseUrl + "/analyze", new HttpEntity<>(request, hdr), String.class);
+
+      return ResponseEntity.ok(resp.getBody());
     } catch (HttpClientErrorException e) {
       return ResponseEntity.status(e.getStatusCode())
               .body("FastAPI error: " + e.getResponseBodyAsString());
     } catch (Exception ex) {
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-              .body("Internal error: " + ex.getMessage());
+      return ResponseEntity.internalServerError().body("Internal error: " + ex.getMessage());
     }
   }
 
+  // --------------------------------------------------------------------- //
+  //  Server‑Sent Events  /stream                                          //
+  // --------------------------------------------------------------------- //
   @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   public Flux<String> stream(
-          @RequestParam String company,
-          @RequestParam(required = false) String extraction_schema,
-          @RequestParam(required = false) String user_notes,
-          @RequestParam(required = false) String token) {
+      @RequestParam String company,
+      @RequestParam(required = false) String extraction_schema,
+      @RequestParam(required = false) String user_notes,
+      @RequestParam(required = false) String token) {
 
+    // JWT guard
     if (!jwtService.validateToken(token)) {
       return Flux.error(new IllegalArgumentException("Invalid token"));
     }
 
-    long requestStart = System.currentTimeMillis();
-    log.info("Received /stream request for company='{}'", company);
+    long ts0 = System.currentTimeMillis();
 
-    // Normalize URL base
-    String baseUrl = FASTAPI_BASE_URL.replaceAll("/+$", "");
-    log.info("Langgraph agent baseURL - {}", baseUrl);
-    URI streamUri = UriComponentsBuilder.fromHttpUrl(baseUrl)
+    // normalise & build URIs
+    String base = fastApiBaseUrl.replaceAll("/+$", "");
+    URI streamUri =
+        UriComponentsBuilder.fromHttpUrl(base)
             .path("/analyze/stream")
             .queryParam("company", company)
-            .queryParamIfPresent("extraction_schema",
-                    Optional.ofNullable(extraction_schema).filter(s -> !s.isEmpty()))
-            .queryParamIfPresent("user_notes",
-                    Optional.ofNullable(user_notes).filter(s -> !s.isEmpty()))
+            .queryParamIfPresent(
+                "extraction_schema",
+                Optional.ofNullable(extraction_schema).filter(s -> !s.isBlank()))
+            .queryParamIfPresent(
+                "user_notes", Optional.ofNullable(user_notes).filter(s -> !s.isBlank()))
             .build(false)
             .toUri();
 
-    URI pingUri = URI.create(baseUrl);
+    URI pingUri = URI.create(base);
 
-    WebClient client = WebClient.builder()
-            .defaultHeader("x-internal-key", SECRET_KEY)
-            .build();
+    WebClient client = WebClient.builder().defaultHeader("x-internal-key", secretKey).build();
 
-    // Warm-up call
-    Mono<Void> warmUp = client.get()
-            .uri(pingUri)
-            .exchangeToMono(r -> {
-              log.info("Ping status: {}", r.statusCode());
-              return r.releaseBody();
-            })
-            .doOnSubscribe(sub -> log.info("Pinging LangGraph service to warm up…"))
-            .retryWhen(Retry.fixedDelay(5, Duration.ofSeconds(10)))
-            .then(Mono.delay(Duration.ofSeconds(5)))  // Give Render extra buffer time
-            .doOnSuccess(v -> log.info("Warm-up complete after {} ms", System.currentTimeMillis() - requestStart))
+    log.info("LangGraph agent baseURL      : {}", base);
+    log.info("Requesting /analyze/stream → : {}", streamUri);
+
+    // warm‑up ping with exponential back‑off up to ~60s
+    Mono<Void> warmUp =
+        client
+            .post()
+            .uri(base + "/analyze")
+            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .header("x-internal-key", secretKey)
+            .bodyValue(
+                """
+            {
+              "company": "Apple",
+              "extraction_schema": {"founded_year": "int", "headquarters": "str", "industry": "str"},
+              "user_notes": ""
+            }
+            """)
+            .exchangeToMono(
+                resp -> {
+                  log.info("Warm-up status: {}", resp.statusCode());
+                  return resp.releaseBody();
+                })
+            .retryWhen(Retry.backoff(6, Duration.ofSeconds(8))) // 6*8 = 48 seconds wait
+            .doOnSubscribe(s -> log.info("Pinging LangGraph /analyze to warm-up…"))
+            .doOnError(err -> log.warn("Warm-up failed: {}", err.getMessage()))
+            .then(Mono.delay(Duration.ofSeconds(3))) // extra wait
+            .doOnSuccess(
+                v -> log.info("Warm-up complete after {} ms", System.currentTimeMillis() - ts0))
             .then();
 
-    // Main SSE stream call
+    // after warm‑up, start streaming
     return warmUp.thenMany(
-            client.get()
-                    .uri(streamUri)
-                    .accept(MediaType.TEXT_EVENT_STREAM)
-                    .retrieve()
-                    .bodyToFlux(String.class)
-                    .retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(3))
-                            .filter(ex -> ex instanceof WebClientResponseException))
-                    .doOnSubscribe(sub -> log.info("Calling /analyze/stream"))
-                    .doOnError(err -> log.error("Stream call failed: {}", err.getMessage()))
-    );
+        client
+            .get()
+            .uri(streamUri)
+            .accept(MediaType.TEXT_EVENT_STREAM)
+            .retrieve()
+            .bodyToFlux(String.class)
+            .retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(3)).filter(this::is5xxOr502))
+            .doOnSubscribe(s -> log.info("SSE stream started…"))
+            .doOnError(err -> log.error("SSE stream failed: {}", err.getMessage())));
   }
 
-
-  @Component
-  public class LangGraphKeepAlive {
-
-    @Value("${fastapi.base-url}") // or use FASTAPI_BASE_URL directly
-    private String fastapiBaseUrl;
-
-    private final WebClient client = WebClient.create();
-
-    @Scheduled(fixedRate = 60 * 60 * 1000, initialDelay = 15 * 1000) // every 60 min
-    public void keepAlive() {
-      String url = fastapiBaseUrl.replaceAll("/+$", "");
-      log.info("Sending keep-alive ping to LangGraph: {}", url);
-      client.get()
-              .uri(url)
-              .retrieve()
-              .toBodilessEntity()
-              .doOnSuccess(resp -> log.info("Keep-alive successful, status={}", resp.getStatusCode()))
-              .doOnError(err -> log.warn("Keep-alive failed: {}", err.getMessage()))
-              .subscribe();
-    }
+  // helper: true for any 5xx (esp. 502) error
+  private boolean is5xxOr502(Throwable t) {
+    return t instanceof WebClientResponseException we && we.getStatusCode().is5xxServerError();
   }
-
 }
