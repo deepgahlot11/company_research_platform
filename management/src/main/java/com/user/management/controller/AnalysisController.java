@@ -45,6 +45,7 @@ public class AnalysisController {
     HttpHeaders hdr = new HttpHeaders();
     hdr.setContentType(MediaType.APPLICATION_JSON);
     hdr.set("x-internal-key", secretKey);
+    hdr.set(HttpHeaders.USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
 
     try {
       ResponseEntity<String> resp =
