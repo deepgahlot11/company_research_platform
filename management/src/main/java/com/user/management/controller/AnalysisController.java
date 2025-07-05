@@ -79,6 +79,7 @@ public class AnalysisController {
 
     // Normalize URL base
     String baseUrl = FASTAPI_BASE_URL.replaceAll("/+$", "");
+    log.info("Langgraph agent baseURL - {}", baseUrl);
     URI streamUri = UriComponentsBuilder.fromHttpUrl(baseUrl)
             .path("/analyze/stream")
             .queryParam("company", company)
@@ -103,7 +104,7 @@ public class AnalysisController {
               return r.releaseBody();
             })
             .doOnSubscribe(sub -> log.info("Pinging LangGraph service to warm up…"))
-            .retryWhen(Retry.fixedDelay(4, Duration.ofSeconds(2)))
+            .retryWhen(Retry.fixedDelay(5, Duration.ofSeconds(10)))
             .then(Mono.delay(Duration.ofSeconds(5)))  // Give Render extra buffer time
             .doOnSuccess(v -> log.info("Warm-up complete after {} ms", System.currentTimeMillis() - requestStart))
             .then();
