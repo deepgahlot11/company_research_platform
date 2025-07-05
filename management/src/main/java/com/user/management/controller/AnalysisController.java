@@ -126,7 +126,7 @@ public class AnalysisController {
   @Component
   public class LangGraphKeepAlive {
 
-    @Value("${langgraph.base-url}") // or use FASTAPI_BASE_URL directly
+    @Value("${fastapi.base-url}") // or use FASTAPI_BASE_URL directly
     private String fastapiBaseUrl;
 
     private final WebClient client = WebClient.create();
