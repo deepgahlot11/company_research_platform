@@ -5,18 +5,24 @@ import com.user.management.service.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Optional;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
+@Slf4j
 @RestController
 @RequestMapping("/api")
 public class AnalysisController {
@@ -64,67 +70,79 @@ public class AnalysisController {
           @RequestParam(required = false) String user_notes,
           @RequestParam(required = false) String token) {
 
-    System.out.println("JWT token: " + token);
     if (!jwtService.validateToken(token)) {
-      throw new IllegalArgumentException("Invalid token in the request...");
+      return Flux.error(new IllegalArgumentException("Invalid token"));
     }
 
-    // Build the URI with query parameters
-    UriComponentsBuilder builder = UriComponentsBuilder
-            .fromHttpUrl(FASTAPI_BASE_URL + "/analyze/stream")
-            .queryParam("company", company);
+    long requestStart = System.currentTimeMillis();
+    log.info("Received /stream request for company='{}'", company);
 
-    if (extraction_schema != null && !extraction_schema.isEmpty()) {
-      builder.queryParam("extraction_schema", extraction_schema);
-    }
-    if (user_notes != null && !user_notes.isEmpty()) {
-      builder.queryParam("user_notes", user_notes);
-    }
+    // Normalize URL base
+    String baseUrl = FASTAPI_BASE_URL.replaceAll("/+$", "");
+    URI streamUri = UriComponentsBuilder.fromHttpUrl(baseUrl)
+            .path("/analyze/stream")
+            .queryParam("company", company)
+            .queryParamIfPresent("extraction_schema",
+                    Optional.ofNullable(extraction_schema).filter(s -> !s.isEmpty()))
+            .queryParamIfPresent("user_notes",
+                    Optional.ofNullable(user_notes).filter(s -> !s.isEmpty()))
+            .build(false)
+            .toUri();
 
-    URI fastApiUri = builder.build(false).toUri();
+    URI pingUri = URI.create(baseUrl);
 
-    // Build WebClient with security header
-    WebClient webClient = WebClient.builder()
+    WebClient client = WebClient.builder()
             .defaultHeader("x-internal-key", SECRET_KEY)
             .build();
 
-    // Step 1: Ping / to warm up the FastAPI service
-    Mono<Boolean> healthCheck = webClient.get()
-            .uri(FASTAPI_BASE_URL + "/")
-            .exchangeToMono(response -> {
-              if (response.statusCode().is2xxSuccessful()) {
-                System.out.println("LangGraph health check passed.");
-                return Mono.just(true);
-              } else {
-                System.err.println("LangGraph health check failed with status: " + response.statusCode());
-                return Mono.just(false);
-              }
+    // Warm-up call
+    Mono<Void> warmUp = client.get()
+            .uri(pingUri)
+            .exchangeToMono(r -> {
+              log.info("Ping status: {}", r.statusCode());
+              return r.releaseBody();
             })
-            .retryWhen(Retry.backoff(5, Duration.ofSeconds(7)))
-            .onErrorResume(error -> {
-              System.err.println("Health check error: " + error.getMessage());
-              return Mono.just(false);
-            });
+            .doOnSubscribe(sub -> log.info("Pinging LangGraph service to warm up…"))
+            .retryWhen(Retry.fixedDelay(4, Duration.ofSeconds(2)))
+            .then(Mono.delay(Duration.ofSeconds(5)))  // Give Render extra buffer time
+            .doOnSuccess(v -> log.info("Warm-up complete after {} ms", System.currentTimeMillis() - requestStart))
+            .then();
 
-    // Step 2: After health check, call /analyze/stream
-    return healthCheck.flatMapMany(isHealthy -> {
-      if (!isHealthy) {
-        return Flux.error(new IllegalStateException("LangGraph agent is unavailable after retries."));
-      }
-
-      return webClient.get()
-              .uri(fastApiUri)
-              .accept(MediaType.TEXT_EVENT_STREAM)
-              .retrieve()
-              .bodyToFlux(String.class)
-              .retryWhen(Retry.backoff(3, Duration.ofSeconds(3))
-                      .filter(error -> {
-                        System.err.println("Retrying due to: " + error.getMessage());
-                        return true;
-                      }))
-              .doOnError(error -> {
-                System.err.println("Final failure calling LangGraph agent: " + error.getMessage());
-              });
-    });
+    // Main SSE stream call
+    return warmUp.thenMany(
+            client.get()
+                    .uri(streamUri)
+                    .accept(MediaType.TEXT_EVENT_STREAM)
+                    .retrieve()
+                    .bodyToFlux(String.class)
+                    .retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(3))
+                            .filter(ex -> ex instanceof WebClientResponseException))
+                    .doOnSubscribe(sub -> log.info("Calling /analyze/stream"))
+                    .doOnError(err -> log.error("Stream call failed: {}", err.getMessage()))
+    );
   }
+
+
+  @Component
+  public class LangGraphKeepAlive {
+
+    @Value("${langgraph.base-url}") // or use FASTAPI_BASE_URL directly
+    private String fastapiBaseUrl;
+
+    private final WebClient client = WebClient.create();
+
+    @Scheduled(fixedRate = 60 * 60 * 1000, initialDelay = 15 * 1000) // every 60 min
+    public void keepAlive() {
+      String url = fastapiBaseUrl.replaceAll("/+$", "");
+      log.info("Sending keep-alive ping to LangGraph: {}", url);
+      client.get()
+              .uri(url)
+              .retrieve()
+              .toBodilessEntity()
+              .doOnSuccess(resp -> log.info("Keep-alive successful, status={}", resp.getStatusCode()))
+              .doOnError(err -> log.warn("Keep-alive failed: {}", err.getMessage()))
+              .subscribe();
+    }
+  }
+
 }
