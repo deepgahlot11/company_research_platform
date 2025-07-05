@@ -26,33 +26,41 @@ import reactor.util.retry.Retry;
 @RequiredArgsConstructor
 public class AnalysisController {
 
-  @Value("${fastapi.base-url}")
-  private String fastApiBaseUrl; // e.g. https://langgraph‑agent‑xxxx.onrender.com
+  /* --------------------------------------------------------------------- */
+  /*  CONFIG                                                               */
+  /* --------------------------------------------------------------------- */
 
-  @Value("${fastapi.secret-key}")
-  private String secretKey; // must match FastAPI’s SECURITY_HEADER
-
+  @Value("${fastapi.base-url}")  private String fastApiBaseUrl;  // e.g. https://langgraph‑agent-xxx.onrender.com
+  @Value("${fastapi.secret-key}") private String secretKey;      // must match FastAPI SECURITY_HEADER
   private final JwtService jwtService;
 
-  // --------------------------------------------------------------------- //
-  //  high‑level   /analyze POST  (non‑stream)                             //
-  // --------------------------------------------------------------------- //
+  private static final Duration WARM_UP_MAX_WAIT   = Duration.ofSeconds(60);
+  private static final Duration WARM_UP_RETRY_BACK = Duration.ofSeconds(8);
+
+  private WebClient webClient() {
+    return WebClient.builder()
+            .defaultHeader("x-internal-key", secretKey)
+            .defaultHeader(HttpHeaders.USER_AGENT, "SpringBoot‑Analysis‑Service")
+            .build();
+  }
+
+  /* --------------------------------------------------------------------- */
+  /*  SIMPLE POST  /analyze                                                */
+  /* --------------------------------------------------------------------- */
   @PostMapping("/analyze")
-  public ResponseEntity<?> analyze(
-      @RequestBody AnalyzeRequest request, HttpServletRequest servletReq) {
+  public ResponseEntity<?> analyze(@RequestBody AnalyzeRequest req,
+                                   HttpServletRequest httpReq) {
 
     RestTemplate rt = new RestTemplate();
-    HttpHeaders hdr = new HttpHeaders();
-    hdr.setContentType(MediaType.APPLICATION_JSON);
-    hdr.set("x-internal-key", secretKey);
-    hdr.set(HttpHeaders.USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    HttpHeaders h = new HttpHeaders();
+    h.setContentType(MediaType.APPLICATION_JSON);
+    h.set("x-internal-key", secretKey);
 
     try {
-      ResponseEntity<String> resp =
-          rt.postForEntity(
-              fastApiBaseUrl + "/analyze", new HttpEntity<>(request, hdr), String.class);
-
+      var resp = rt.postForEntity(
+              fastApiBaseUrl + "/analyze", new HttpEntity<>(req, h), String.class);
       return ResponseEntity.ok(resp.getBody());
+
     } catch (HttpClientErrorException e) {
       return ResponseEntity.status(e.getStatusCode())
               .body("FastAPI error: " + e.getResponseBodyAsString());
@@ -61,87 +69,72 @@ public class AnalysisController {
     }
   }
 
-  // --------------------------------------------------------------------- //
-  //  Server‑Sent Events  /stream                                          //
-  // --------------------------------------------------------------------- //
+  /* --------------------------------------------------------------------- */
+  /*  SSE /stream                                                          */
+  /* --------------------------------------------------------------------- */
   @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-  public Flux<String> stream(
-      @RequestParam String company,
-      @RequestParam(required = false) String extraction_schema,
-      @RequestParam(required = false) String user_notes,
-      @RequestParam(required = false) String token) {
+  public Flux<String> stream(@RequestParam String company,
+                             @RequestParam(required = false) String extraction_schema,
+                             @RequestParam(required = false) String user_notes,
+                             @RequestParam(required = false) String token) {
 
-    // JWT guard
+    /* JWT guard */
     if (!jwtService.validateToken(token)) {
-      return Flux.error(new IllegalArgumentException("Invalid token"));
+      return Flux.error(new IllegalArgumentException("Invalid JWT"));
     }
 
-    long ts0 = System.currentTimeMillis();
-
-    // normalise & build URIs
+    /* URL building */
     String base = fastApiBaseUrl.replaceAll("/+$", "");
-    URI streamUri =
-        UriComponentsBuilder.fromHttpUrl(base)
+    URI streamUri = UriComponentsBuilder.fromHttpUrl(base)
             .path("/analyze/stream")
             .queryParam("company", company)
-            .queryParamIfPresent(
-                "extraction_schema",
-                Optional.ofNullable(extraction_schema).filter(s -> !s.isBlank()))
-            .queryParamIfPresent(
-                "user_notes", Optional.ofNullable(user_notes).filter(s -> !s.isBlank()))
-            .build(false)
-            .toUri();
+            .queryParamIfPresent("extraction_schema",
+                    Optional.ofNullable(extraction_schema).filter(s -> !s.isBlank()))
+            .queryParamIfPresent("user_notes",
+                    Optional.ofNullable(user_notes).filter(s -> !s.isBlank()))
+            .build(false).toUri();
 
-    URI pingUri = URI.create(base);
+    URI pingUri = URI.create(base + "/ping");     // lightweight endpoint we added to FastAPI
+    URI rootUri = URI.create(base);               // fallback (Render also wakes on “/”)
 
-    WebClient client = WebClient.builder().defaultHeader("x-internal-key", secretKey).build();
+    WebClient client = webClient();
 
-    log.info("LangGraph agent baseURL      : {}", base);
-    log.info("Requesting /analyze/stream → : {}", streamUri);
+    log.info("LangGraph base      : {}", base);
+    log.info("Requesting STREAM → : {}", streamUri);
 
-    // warm‑up ping with exponential back‑off up to ~60s
+    /* -------------------- 1. cold‑start warm‑up ----------------------- */
     Mono<Void> warmUp =
-        client
-            .post()
-            .uri(base + "/analyze")
-            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-            .header("x-internal-key", secretKey)
-            .bodyValue(
-                """
-            {
-              "company": "Apple",
-              "extraction_schema": {"founded_year": "int", "headquarters": "str", "industry": "str"},
-              "user_notes": ""
-            }
-            """)
-            .exchangeToMono(
-                resp -> {
-                  log.info("Warm-up status: {}", resp.statusCode());
-                  return resp.releaseBody();
-                })
-            .retryWhen(Retry.backoff(6, Duration.ofSeconds(8))) // 6*8 = 48 seconds wait
-            .doOnSubscribe(s -> log.info("Pinging LangGraph /analyze to warm-up…"))
-            .doOnError(err -> log.warn("Warm-up failed: {}", err.getMessage()))
-            .then(Mono.delay(Duration.ofSeconds(3))) // extra wait
-            .doOnSuccess(
-                v -> log.info("Warm-up complete after {} ms", System.currentTimeMillis() - ts0))
-            .then();
+            client.get().uri(pingUri)                 // first try /ping
+                    .exchangeToMono(resp -> Mono.just(resp.statusCode()))
+                    .onErrorResume(ex -> {
+                      log.warn("Ping /ping failed: {} → will try /", ex.getMessage());
+                      return client.get().uri(rootUri).exchangeToMono(r -> Mono.just(r.statusCode()));
+                    })
+                    .doOnSubscribe(s -> log.info("Cold‑start ping …"))
+                    .retryWhen(
+                            Retry.fixedDelay(Integer.MAX_VALUE, WARM_UP_RETRY_BACK)
+                                    .filter(this::is5xxOrConnect)
+                                    .maxBackoff(WARM_UP_MAX_WAIT))
+                    .timeout(WARM_UP_MAX_WAIT)
+                    .doOnSuccess(code -> log.info("Ping ready: HTTP {}", code))
+                    .then();
 
-    // after warm‑up, start streaming
+    /* -------------------- 2. actual SSE call -------------------------- */
     return warmUp.thenMany(
-        client
-            .get()
-            .uri(streamUri)
-            .accept(MediaType.TEXT_EVENT_STREAM)
-            .retrieve()
-            .bodyToFlux(String.class)
-            .retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(3)).filter(this::is5xxOr502))
-            .doOnSubscribe(s -> log.info("SSE stream started…"))
-            .doOnError(err -> log.error("SSE stream failed: {}", err.getMessage())));
+            client.get().uri(streamUri)
+                    .accept(MediaType.TEXT_EVENT_STREAM)
+                    .retrieve()
+                    .bodyToFlux(String.class)
+                    .retryWhen(
+                            Retry.fixedDelay(3, Duration.ofSeconds(3))
+                                    .filter(this::is5xxOrConnect))
+                    .doOnSubscribe(s -> log.info("SSE stream started …"))
+                    .doOnError(e -> log.error("SSE stream failed: {}", e.getMessage())));
   }
 
-  // helper: true for any 5xx (esp. 502) error
-  private boolean is5xxOr502(Throwable t) {
-    return t instanceof WebClientResponseException we && we.getStatusCode().is5xxServerError();
+  /* Utils */
+  private boolean is5xxOrConnect(Throwable t) {
+    return (t instanceof WebClientResponseException we && we.getStatusCode().is5xxServerError())
+            || t.getMessage().contains("Connection refused");
   }
 }
