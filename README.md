@@ -12,8 +12,6 @@ This project is a full-stack AI-driven platform for company research and informa
 
 **TO ACCESS LIVE DEMO: [Company Research AI Platform](https://react-frontend-k26s.onrender.com/)**
 
-**RESEARCH ANALYSIS FUNCTIONALITY NOT WORKING IN DEMO SITE, DUE TO SOME RENDER SIDE ISSUE, IN LIVE DEMO LANGGRAPH AI AGENT IS NOT WARMING UP AFTER INACTIVITY, WILL FIX IT IN FUTURE**
-
 **Service on Render scales down or goes offline automatically after 15mins of inactivity to save resources. If any user is logging after all services are down, user has to wait for extra amount of time initially so that services can come online automatically. For e.g. if user access UI application, it takes some time, than if any API is hit backend services takes around 40 seconds to come online and similarly AI agent requires some time. All this wait will happen only for the first time.**
 
 ## Architecture Overview
