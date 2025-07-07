@@ -4,7 +4,7 @@ This project is a full-stack AI-driven platform for company research and informa
 
 **RECOMMENDED - USE DOCKER COMPOSE UP FOR RUNNING**
 
-**NOTE: USE YOU OWN GEMINI and TAVILY API KEYS IN docker-compose.yml FILE IF YOU GET ANY ERRORS OR EXCEPTIONS , get you own Gemini API key - https://aistudio.google.com/apikey**
+**NOTE: USE YOUR OWN GEMINI and TAVILY API KEYS IN docker-compose.yml FILE IF YOU GET ANY ERRORS OR EXCEPTIONS , get you own Gemini API key - https://aistudio.google.com/apikey**
 
 **Deployable on render.com as well**
 
