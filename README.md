@@ -2,11 +2,15 @@
 
 This project is a full-stack AI-driven platform for company research and information extraction. It combines React frontend, Spring Boot backend with JWT-based auth, LangGraph AI agent using FastAPI and Gemini/Tavily APIs, all containerized using Docker and orchestrated via Docker Compose.
 
-**RECOMMENDED - USE DOCKER COMPOSE UP FOR RUNNING , AVOID LIVE DEMO URL FOR NOW**
+**RECOMMENDED - USE DOCKER COMPOSE UP FOR RUNNING**
+
+**NOTE: USE YOU OWN GEMINI and TAVILY API KEYS IN docker-compose.yml FILE IF YOU GET ANY ERRORS OR EXCEPTIONS , get you own Gemini API key - https://aistudio.google.com/apikey**
 
 **Deployable on render.com as well**
 
-**LIVE DEMO: [Company Research AI Platform](https://react-frontend-k26s.onrender.com/)**
+**TO ENABLE LIVE DEMO, click [WARM-UP BACKEND SERVICE](https://spring-boot-backend-8qlb.onrender.com) & [WARM-UP LANGGRAPH SERVICE](https://langgraph-agent-0n94.onrender.com) and wait for services to come online, may take 4-5mins**
+
+**TO ACCESS LIVE DEMO: [Company Research AI Platform](https://react-frontend-k26s.onrender.com/)**
 
 **RESEARCH ANALYSIS FUNCTIONALITY NOT WORKING IN DEMO SITE, DUE TO SOME RENDER SIDE ISSUE, IN LIVE DEMO LANGGRAPH AI AGENT IS NOT WARMING UP AFTER INACTIVITY, WILL FIX IT IN FUTURE**
 
